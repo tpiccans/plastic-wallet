@@ -5,7 +5,7 @@
 
 "use strict"
 
-const BITBOXSDK = require("bitbox-sdk")
+const BITBOXSDK = require("bitbox-sdk").BITBOX
 const BITBOX = new BITBOXSDK()
 const QRCode = require("qrcode")
 const touch = require("touch")
@@ -13,6 +13,7 @@ const mkdirp = require("mkdirp")
 const fs = require("fs")
 const emoji = require("node-emoji")
 const chalk = require("chalk")
+const prompt = require("prompt")
 
 const htmlTemplatePublic = require("./html-template03a")
 const htmlTemplatePrivate = require("./html-template03b")
@@ -40,47 +41,57 @@ const main = async () => {
   // create needed directory structure
   mkdirp(`${htmlDir}`, err => {})
 
-  // root seed buffer
-  const rootSeed = BITBOX.Mnemonic.toSeed(mnemonicObj.mnemonic)
+  // start the prompt to get user input
+  prompt.start()
 
-  // master HDNode
-  const masterHDNode = BITBOX.HDNode.fromSeed(rootSeed)
+  console.log(`Enter the password for the wallet (empty = no password)`)
+  prompt.get(["password"], async (err, result) => {
+    const password = result.password
 
-  // BIP44
-  const bip44 = BITBOX.HDNode.derivePath(masterHDNode, "m/44'/145'")
+    // root seed buffer
+    const rootSeed = password
+      ? BITBOX.Mnemonic.toSeed(mnemonicObj.mnemonic, password)
+      : BITBOX.Mnemonic.toSeed(mnemonicObj.mnemonic)
+      
+    // master HDNode
+    const masterHDNode = BITBOX.HDNode.fromSeed(rootSeed)
 
-  // Generate a random number for the first half of the serial number.
-  const rnd = generateRando()
-  // console.log(`rnd: ${rnd}`)
+    // BIP44
+    const bip44 = BITBOX.HDNode.derivePath(masterHDNode, "m/44'/145'")
 
-  for (let i = 0; i < addressCount; i++) {
-    console.log(`html: ${i}`)
-    await sleep(100)
-    // derive the ith external change address from the BIP44 account HDNode
-    const node = BITBOX.HDNode.derivePath(
-      bip44,
-      //`${result.hdAccount ? result.hdAccount : 0}'/0/${i}`
-      `0'/0/${i}`
-    )
+    // Generate a random number for the first half of the serial number.
+    const rnd = generateRando()
+    // console.log(`rnd: ${rnd}`)
 
-    // get the priv key in wallet import format
-    const wif = BITBOX.HDNode.toWIF(node)
-    console.log(`WIF for address ${i}: ${wif}`)
+    for (let i = 0; i < addressCount; i++) {
+      console.log(`html: ${i}`)
+      await sleep(100)
+      // derive the ith external change address from the BIP44 account HDNode
+      const node = BITBOX.HDNode.derivePath(
+        bip44,
+        //`${result.hdAccount ? result.hdAccount : 0}'/0/${i}`
+        `0'/0/${i}`
+      )
 
-    // Get the public key for the WIF.
-    const pubAddr = BITBOX.HDNode.toCashAddress(node)
-    // pubAddr = BITBOX.Address.toCashAddress(pubAddr, false)
-    console.log(`pubAddr: ${pubAddr}`)
+      // get the priv key in wallet import format
+      const wif = BITBOX.HDNode.toWIF(node)
+      console.log(`WIF for address ${i}: ${wif}`)
 
-    // Generate the artwork for the public address.
-    await createPublic(pubAddr, i, rnd)
+      // Get the public key for the WIF.
+      const pubAddr = BITBOX.HDNode.toCashAddress(node)
+      // pubAddr = BITBOX.Address.toCashAddress(pubAddr, false)
+      console.log(`pubAddr: ${pubAddr}`)
 
-    // Generate the artwork for the private key.
-    await createPrivate(wif, i, rnd)
-  }
+      // Generate the artwork for the public address.
+      await createPublic(pubAddr, i, rnd)
 
-  console.log(chalk.green("All done."), emoji.get(":white_check_mark:"))
-  console.log(emoji.get(":rocket:"), `html files written successfully.`)
+      // Generate the artwork for the private key.
+      await createPrivate(wif, i, rnd)
+    }
+
+    console.log(chalk.green("All done."), emoji.get(":white_check_mark:"))
+    console.log(emoji.get(":rocket:"), `html files written successfully.`)
+  })
 }
 main()
 

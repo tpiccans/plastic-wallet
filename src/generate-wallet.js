@@ -5,7 +5,7 @@
 
 "use strict"
 
-const BITBOXSDK = require("bitbox-sdk")
+const BITBOXSDK = require("bitbox-sdk").BITBOX
 const BITBOX = new BITBOXSDK()
 const fs = require("fs")
 const qrcode = require("qrcode-terminal")
